@@ -1,0 +1,48 @@
+name: Build Lịch Làm iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build unsigned app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project LichLam.xcodeproj \
+            -scheme LichLam \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package .tipa
+        run: |
+          set -euo pipefail
+          APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/LichLam.app"
+          test -d "$APP_PATH"
+          mkdir -p build/package/Payload
+          cp -R "$APP_PATH" build/package/Payload/LichLam.app
+          cd build/package
+          zip -qry ../../LichLam.tipa Payload
+          cd ../..
+          ls -lh LichLam.tipa
+
+      - name: Upload .tipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LichLam-iOS-tipa
+          path: LichLam.tipa
+          if-no-files-found: error
+          retention-days: 14
