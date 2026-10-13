@@ -99,34 +99,66 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               html.ios-dark .schedule-table .staff-name { color:#f0fff7 !important; }
               html.ios-dark .schedule-table .staff-dept, html.ios-dark .schedule-table .ios-shift-caption { color:#85d9b7 !important; }
               html.ios-dark input, html.ios-dark select, html.ios-dark textarea { background:#172520 !important; color:#e6f0eb !important; border-color:#355448 !important; }
-              html.ios-dark button, html.ios-dark .card, html.ios-dark .stat-card, html.ios-dark .summary-card { background:#172520 !important; color:#e6f0eb !important; border-color:#2c443a !important; }
-              html.ios-dark .ios-theme-controls button { background:#246b53 !important; color:#ffffff !important; border-color:#4d8d74 !important; }
+              /* Dark mode: force readable colors on light dashboard cards and inline styles. */
+              html.ios-dark body, html.ios-dark body main, html.ios-dark body section,
+              html.ios-dark body article, html.ios-dark body .container,
+              html.ios-dark body .content, html.ios-dark body .dashboard,
+              html.ios-dark body .card, html.ios-dark body .stat-card,
+              html.ios-dark body .summary-card, html.ios-dark body .metric-card,
+              html.ios-dark body .filter-card, html.ios-dark body .filters,
+              html.ios-dark body .day-card, html.ios-dark body .shift-card,
+              html.ios-dark body #departments, html.ios-dark body #departments > * {
+                background:#172520 !important;
+                background-color:#172520 !important;
+                color:#e6f0eb !important;
+                border-color:#2c443a !important;
+                box-shadow:none !important;
+              }
+              html.ios-dark body [style*="background: white"],
+              html.ios-dark body [style*="background:white"],
+              html.ios-dark body [style*="background-color: white"],
+              html.ios-dark body [style*="background-color:white"],
+              html.ios-dark body [style*="rgb(255, 255, 255)"],
+              html.ios-dark body [style*="#fff"],
+              html.ios-dark body [style*="#ffffff"] {
+                background:#172520 !important; background-color:#172520 !important;
+                color:#e6f0eb !important; border-color:#2c443a !important;
+              }
+              html.ios-dark body h1, html.ios-dark body h2, html.ios-dark body h3,
+              html.ios-dark body p, html.ios-dark body label, html.ios-dark body span,
+              html.ios-dark body strong, html.ios-dark body b, html.ios-dark body small,
+              html.ios-dark body div, html.ios-dark body a {
+                color:#e6f0eb;
+              }
+              html.ios-dark button, html.ios-dark input, html.ios-dark select,
+              html.ios-dark textarea {
+                background:#172520 !important; color:#e6f0eb !important;
+                border-color:#355448 !important;
+              }
+              html.ios-dark .ios-theme-controls button {
+                background:#246b53 !important; color:#ffffff !important; border-color:#4d8d74 !important;
+              }
               html.ios-dark #departments > * { color:#e6f0eb !important; }
+              html.ios-dark .schedule-table .staff-name { color:#f0fff7 !important; }
+              html.ios-dark .schedule-table .staff-dept,
+              html.ios-dark .schedule-table .ios-shift-caption { color:#85d9b7 !important; }
+              html.ios-dark .schedule-table .shift-badge { color:#17372c !important; }
+              html.ios-dark .schedule-table .shift-group-row td {
+                background:#1b3027 !important; color:#e6f0eb !important;
+              }
             }
           `;
+          try {
+            if (localStorage.getItem('lichLamIOSTheme') === 'dark') {
+              document.documentElement.classList.add('ios-dark');
+            }
+          } catch(e) {}
           const style = document.createElement('style');
           style.id = 'lich-lam-ios-compact-style';
           style.textContent = css;
           (document.head || document.documentElement).appendChild(style);
 
-          function removeRawScriptText() {
-            // The screenshot shows a long JavaScript bundle rendered as ordinary page text.
-            // Remove only text containers that clearly contain source code, not normal prose.
-            const candidates = document.querySelectorAll('body *');
-            candidates.forEach(el => {
-              if (el.children.length > 0) return;
-              const t = (el.textContent || '').trim();
-              if (t.length > 500 &&
-                  (t.includes('const $=id=>document.getElementById') ||
-                   (t.includes('function render()') && t.includes('MutationObserver') && t.includes('dayColumns')) ||
-                   (t.includes('headers.findIndex') && t.includes('shiftColor') && t.includes('operationsSummary')))) {
-                el.remove();
-              }
-            });
-          }
-
           function installBannerControls() {
-            removeRawScriptText();
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             let node;
             while ((node = walker.nextNode())) {
