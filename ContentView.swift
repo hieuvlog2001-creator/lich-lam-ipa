@@ -98,6 +98,12 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               html.ios-dark .schedule-table td, html.ios-dark .schedule-table tr.staff-row td { background:#172520 !important; border-color:#2c443a !important; color:#e6f0eb !important; }
               html.ios-dark .schedule-table .staff-name { color:#f0fff7 !important; }
               html.ios-dark .schedule-table .shift-badge { color:#26352f !important; font-weight:800 !important; }
+              html.ios-dark .shift-summary, html.ios-dark .shift-count, html.ios-dark .shift-pill,
+              html.ios-dark .summary-pill, html.ios-dark .shift-stat {
+                color:#17392d !important; font-weight:800 !important;
+              }
+              html.ios-dark .shift-summary *, html.ios-dark .shift-count *, html.ios-dark .shift-pill *,
+              html.ios-dark .summary-pill *, html.ios-dark .shift-stat * { color:#17392d !important; }
               html.ios-dark .schedule-table .staff-dept, html.ios-dark .schedule-table .ios-shift-caption { color:#85d9b7 !important; }
               html.ios-dark input, html.ios-dark select, html.ios-dark textarea { background:#172520 !important; color:#e6f0eb !important; border-color:#355448 !important; }
               html.ios-dark button, html.ios-dark .card, html.ios-dark .stat-card, html.ios-dark .summary-card { background:#172520 !important; color:#e6f0eb !important; border-color:#2c443a !important; }
@@ -171,44 +177,51 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
             }
           }
           function removeVisibleScriptText() {
-            // Gỡ phần mã nguồn bị website hiển thị thành văn bản.
+            // Website is currently exposing its embedded JS as visible text.
+            // Find the smallest visible container with recognizable source-code markers.
             const markers = [
               'const $=id=>document.getElementById',
+              'headers.findIndex(',
               'function shiftColor(',
               'dayColumns.push(',
-              'headers.findIndex(',
               'function render(){',
-              'operationsSummary'
+              'operationsSummary',
+              'getShift(a,d)'
             ];
-            const looksLikeSource = value => {
+            const hasCode = value => {
               const t = (value || '').trim();
-              return t.length > 250 && markers.filter(marker => t.includes(marker)).length >= 2;
+              if (t.length < 350) return false;
+              const hits = markers.reduce((n, marker) => n + (t.includes(marker) ? 1 : 0), 0);
+              return hits >= 1 && (t.includes('function ') || t.includes('=>') || t.includes('document.'));
             };
 
-            // Quét cả nội dung phần tử vì trình duyệt có thể chia mã thành nhiều text node.
-            const elements = Array.from(document.querySelectorAll('body *'));
-            const matches = elements.filter(el => {
-              if (['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(el.tagName)) return false;
-              return looksLikeSource(el.innerText || el.textContent || '');
-            });
+            // First remove code-only text nodes wherever they are located.
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            const nodesToRemove = [];
+            let node;
+            while ((node = walker.nextNode())) {
+              if (hasCode(node.nodeValue || '')) nodesToRemove.push(node);
+            }
+            nodesToRemove.forEach(n => n.parentNode && n.parentNode.removeChild(n));
 
-            // Xóa phần tử nhỏ nhất chứa đoạn mã; tránh xóa toàn bộ trang.
-            matches.forEach(el => {
-              if (!el.isConnected || el.closest('[data-keep-visible]')) return;
-              const childAlsoMatches = Array.from(el.children).some(child =>
-                looksLikeSource(child.innerText || child.textContent || '')
-              );
-              if (childAlsoMatches) return;
-              const text = (el.innerText || el.textContent || '').trim();
-              if (looksLikeSource(text) && el !== document.body && el !== document.documentElement) {
-                el.remove();
-              }
+            // Then handle source split into many adjacent text nodes within one element.
+            const candidates = Array.from(document.querySelectorAll('body *')).filter(el => {
+              if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'INPUT', 'TEXTAREA'].includes(el.tagName)) return false;
+              if (el.closest('.ios-theme-controls')) return false;
+              return hasCode(el.innerText || el.textContent || '');
             });
-
-            // Trường hợp mã được chèn thành text node trực tiếp dưới body.
-            Array.from(document.body.childNodes).forEach(node => {
-              if (node.nodeType !== Node.TEXT_NODE) return;
-              if (looksLikeSource(node.nodeValue || '')) node.remove();
+            candidates.sort((a, b) => {
+              const aDepth = (() => { let d=0, n=a; while(n && n!==document.body){d++;n=n.parentElement;} return d; })();
+              const bDepth = (() => { let d=0, n=b; while(n && n!==document.body){d++;n=n.parentElement;} return d; })();
+              return bDepth - aDepth;
+            });
+            candidates.forEach(el => {
+              if (!el.isConnected || el === document.body || el === document.documentElement) return;
+              const value = (el.innerText || el.textContent || '').trim();
+              if (!hasCode(value)) return;
+              // Never remove the real schedule/table or app controls.
+              if (el.matches('table, tr, td, th, button, select, option') || el.querySelector('table.schedule-table')) return;
+              el.remove();
             });
           }
 
