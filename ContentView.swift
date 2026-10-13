@@ -112,11 +112,11 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
           function normalizeDarkPalette() {
             if (!document.documentElement.classList.contains('ios-dark')) return;
             const isLight = (color) => {
-              const m = (color || '').match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+              const m = (color || '').match(/rgba?\\((\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)/i);
               return !!m && Number(m[1]) > 235 && Number(m[2]) > 235 && Number(m[3]) > 235;
             };
             const isPale = (color) => {
-              const m = (color || '').match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+              const m = (color || '').match(/rgba?\\((\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)/i);
               if (!m) return false;
               const r=Number(m[1]), g=Number(m[2]), b=Number(m[3]);
               return r > 205 && g > 215 && b > 205;
