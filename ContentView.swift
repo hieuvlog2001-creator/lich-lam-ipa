@@ -97,6 +97,7 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               html.ios-dark .schedule-table th { background:#18382d !important; color:#d7f5e7 !important; }
               html.ios-dark .schedule-table td, html.ios-dark .schedule-table tr.staff-row td { background:#172520 !important; border-color:#2c443a !important; color:#e6f0eb !important; }
               html.ios-dark .schedule-table .staff-name { color:#f0fff7 !important; }
+              html.ios-dark .schedule-table .shift-badge { color:#26352f !important; font-weight:800 !important; }
               html.ios-dark .schedule-table .staff-dept, html.ios-dark .schedule-table .ios-shift-caption { color:#85d9b7 !important; }
               html.ios-dark input, html.ios-dark select, html.ios-dark textarea { background:#172520 !important; color:#e6f0eb !important; border-color:#355448 !important; }
               html.ios-dark button, html.ios-dark .card, html.ios-dark .stat-card, html.ios-dark .summary-card { background:#172520 !important; color:#e6f0eb !important; border-color:#2c443a !important; }
@@ -170,20 +171,44 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
             }
           }
           function removeVisibleScriptText() {
-            // Phòng trường hợp trang web vô tình render mã JavaScript thành nội dung văn bản.
-            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-            const badMarkers = ['const $=id=>document.getElementById', 'function shiftColor(', 'dayColumns.push(', 'function render(){ if(!dayColumns.length)'];
-            const remove = [];
-            let textNode;
-            while ((textNode = walker.nextNode())) {
-              const value = textNode.nodeValue || '';
-              if (value.length > 500 && badMarkers.some(marker => value.includes(marker))) {
-                const parent = textNode.parentElement;
-                if (parent) remove.push(parent.closest('pre, code, script, .script-output, .code-output') || parent);
+            // Gỡ phần mã nguồn bị website hiển thị thành văn bản.
+            const markers = [
+              'const $=id=>document.getElementById',
+              'function shiftColor(',
+              'dayColumns.push(',
+              'headers.findIndex(',
+              'function render(){',
+              'operationsSummary'
+            ];
+            const looksLikeSource = value => {
+              const t = (value || '').trim();
+              return t.length > 250 && markers.filter(marker => t.includes(marker)).length >= 2;
+            };
+
+            // Quét cả nội dung phần tử vì trình duyệt có thể chia mã thành nhiều text node.
+            const elements = Array.from(document.querySelectorAll('body *'));
+            const matches = elements.filter(el => {
+              if (['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(el.tagName)) return false;
+              return looksLikeSource(el.innerText || el.textContent || '');
+            });
+
+            // Xóa phần tử nhỏ nhất chứa đoạn mã; tránh xóa toàn bộ trang.
+            matches.forEach(el => {
+              if (!el.isConnected || el.closest('[data-keep-visible]')) return;
+              const childAlsoMatches = Array.from(el.children).some(child =>
+                looksLikeSource(child.innerText || child.textContent || '')
+              );
+              if (childAlsoMatches) return;
+              const text = (el.innerText || el.textContent || '').trim();
+              if (looksLikeSource(text) && el !== document.body && el !== document.documentElement) {
+                el.remove();
               }
-            }
-            [...new Set(remove)].forEach(el => {
-              if (el && !el.closest('script, style')) el.remove();
+            });
+
+            // Trường hợp mã được chèn thành text node trực tiếp dưới body.
+            Array.from(document.body.childNodes).forEach(node => {
+              if (node.nodeType !== Node.TEXT_NODE) return;
+              if (looksLikeSource(node.nodeValue || '')) node.remove();
             });
           }
 
@@ -241,7 +266,7 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
             installBannerControls();
             const observer = new MutationObserver(() => { removeVisibleScriptText(); compactTable(); installBannerControls(); });
             observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-            setInterval(normalizeDarkPalette, 1000);
+            setInterval(() => { removeVisibleScriptText(); normalizeDarkPalette(); }, 800);
             document.addEventListener('change', () => setTimeout(() => { compactTable(); installBannerControls(); }, 100), true);
           };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
