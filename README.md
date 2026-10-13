@@ -22,3 +22,10 @@ Sửa `Config.swift`, thay `https://misamod.site`.
 
 ## Giao diện iOS gọn 3 cột
 Trong app iOS, WebView tự tinh chỉnh bảng lịch thành 3 cột: STT, Họ và tên, Ca làm. Cột vị trí/trạng thái được ẩn trong app, tên bộ phận vẫn ở dưới tên nhân viên, và mã ca có nhãn phụ như M6 / Ca sáng, A2 / Ca chiều, N10 / Ca đêm. Đây là thay đổi chỉ trong ứng dụng iOS; website và dữ liệu Google Sheets không bị thay đổi.
+
+
+## Giao diện app iOS chuyên nghiệp
+- Bỏ dòng URL `misamod.site`, bỏ nút Home và nút quay lại khỏi thanh trên cùng.
+- Thanh đầu trang native có biểu tượng lịch, tên `Lịch Làm`, trạng thái cập nhật và nút reload duy nhất.
+- Màu xanh lá trầm, nền sáng, góc bo và đường phân cách nhẹ theo phong cách app quản trị hiện đại.
+- Bố cục bảng 3 cột trong WebView vẫn giữ nguyên theo cấu hình iOS trước đó.

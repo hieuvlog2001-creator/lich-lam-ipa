@@ -7,42 +7,73 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                Button { model.goBack() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 36, height: 36)
-                }
-                .disabled(!model.canGoBack)
-                .opacity(model.canGoBack ? 1 : 0.35)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(AppConfig.appName)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.06, green: 0.48, blue: 0.34),
+                                    Color(red: 0.04, green: 0.32, blue: 0.25)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    Image(systemName: "calendar.badge.clock")
                         .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(Color(red: 0.06, green: 0.27, blue: 0.20))
-                    Text(model.status)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 40, height: 40)
+                .shadow(color: Color(red: 0.04, green: 0.32, blue: 0.25).opacity(0.18), radius: 5, y: 3)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(AppConfig.appName)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color(red: 0.08, green: 0.20, blue: 0.16))
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(model.isLoading ? Color.orange : Color(red: 0.08, green: 0.61, blue: 0.42))
+                            .frame(width: 6, height: 6)
+                        Text(model.isLoading ? "Đang cập nhật lịch" : "Lịch nhân sự")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Color(red: 0.39, green: 0.48, blue: 0.44))
+                    }
                 }
 
-                Spacer(minLength: 4)
+                Spacer(minLength: 8)
 
-                Button { model.reload() } label: {
+                Button {
+                    model.reload()
+                } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 36, height: 36)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color(red: 0.07, green: 0.40, blue: 0.30))
+                        .frame(width: 40, height: 40)
+                        .background(Color(red: 0.91, green: 0.96, blue: 0.93))
+                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .stroke(Color(red: 0.82, green: 0.90, blue: 0.85), lineWidth: 0.8)
+                        }
                 }
-                Button { model.goHome() } label: {
-                    Image(systemName: "house.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(width: 36, height: 36)
-                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Tải lại lịch")
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(Color(red: 0.07, green: 0.42, blue: 0.31))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(Color.white)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
+            .background(
+                LinearGradient(
+                    colors: [Color.white, Color(red: 0.97, green: 0.99, blue: 0.98)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color(red: 0.88, green: 0.92, blue: 0.89))
+                    .frame(height: 0.7)
+            }
 
             if model.isLoading {
                 ProgressView(value: model.progress)
@@ -50,6 +81,7 @@ struct ContentView: View {
             }
 
             WebView(webView: model.webView)
+                .background(Color(red: 0.95, green: 0.97, blue: 0.96))
                 .ignoresSafeArea(edges: .bottom)
         }
         .background(Color.white)
@@ -197,6 +229,9 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
         super.init()
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = true
+        webView.scrollView.contentInsetAdjustmentBehavior = .automatic
+        webView.isOpaque = false
+        webView.backgroundColor = UIColor(red: 0.95, green: 0.97, blue: 0.96, alpha: 1)
         observation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] view, _ in
             DispatchQueue.main.async { self?.progress = view.estimatedProgress }
         }
