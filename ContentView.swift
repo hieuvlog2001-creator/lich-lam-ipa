@@ -90,72 +90,57 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               .ios-theme-controls { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-left:12px; }
               .ios-theme-controls button { border:0; border-radius:12px; padding:9px 12px; font-size:13px; font-weight:800; color:#ffffff; background:rgba(255,255,255,.18); box-shadow:inset 0 0 0 1px rgba(255,255,255,.2); }
               html.ios-dark, html.ios-dark body { background:#101a17 !important; color:#e6f0eb !important; }
+              html.ios-dark body { color:#e6f0eb !important; }
               html.ios-dark body * { border-color:#2c443a !important; }
-              html.ios-dark h1, html.ios-dark h2, html.ios-dark h3, html.ios-dark p,
-              html.ios-dark label, html.ios-dark span, html.ios-dark div, html.ios-dark strong,
-              html.ios-dark b, html.ios-dark small, html.ios-dark a { color:#e6f0eb; }
+              html.ios-dark h1, html.ios-dark h2, html.ios-dark h3, html.ios-dark p, html.ios-dark label, html.ios-dark span, html.ios-dark div { color:#e6f0eb; }
               html.ios-dark .schedule-table { background:#172520 !important; }
               html.ios-dark .schedule-table th { background:#18382d !important; color:#d7f5e7 !important; }
               html.ios-dark .schedule-table td, html.ios-dark .schedule-table tr.staff-row td { background:#172520 !important; border-color:#2c443a !important; color:#e6f0eb !important; }
               html.ios-dark .schedule-table .staff-name { color:#f0fff7 !important; }
               html.ios-dark .schedule-table .staff-dept, html.ios-dark .schedule-table .ios-shift-caption { color:#85d9b7 !important; }
               html.ios-dark input, html.ios-dark select, html.ios-dark textarea { background:#172520 !important; color:#e6f0eb !important; border-color:#355448 !important; }
-              html.ios-dark button, html.ios-dark .card, html.ios-dark .stat-card, html.ios-dark .summary-card,
-              html.ios-dark .metric-card, html.ios-dark .filter-card, html.ios-dark .filters,
-              html.ios-dark .day-card, html.ios-dark .shift-card, html.ios-dark #departments,
-              html.ios-dark #departments > * {
-                background:#172520 !important; background-color:#172520 !important;
-                color:#e6f0eb !important; border-color:#2c443a !important;
-              }
-              html.ios-dark body [style*="background: white"],
-              html.ios-dark body [style*="background:white"],
-              html.ios-dark body [style*="background-color: white"],
-              html.ios-dark body [style*="background-color:white"],
-              html.ios-dark body [style*="rgb(255, 255, 255)"],
-              html.ios-dark body [style*="#fff"],
-              html.ios-dark body [style*="#ffffff"] {
-                background:#172520 !important; background-color:#172520 !important;
-                color:#e6f0eb !important; border-color:#2c443a !important;
-              }
+              html.ios-dark button, html.ios-dark .card, html.ios-dark .stat-card, html.ios-dark .summary-card { background:#172520 !important; color:#e6f0eb !important; border-color:#2c443a !important; }
               html.ios-dark .ios-theme-controls button { background:#246b53 !important; color:#ffffff !important; border-color:#4d8d74 !important; }
               html.ios-dark #departments > * { color:#e6f0eb !important; }
-
             }
           `;
-          try { if (localStorage.getItem('lichLamIOSTheme') === 'dark') document.documentElement.classList.add('ios-dark'); } catch(e) {}
           const style = document.createElement('style');
           style.id = 'lich-lam-ios-compact-style';
           style.textContent = css;
           (document.head || document.documentElement).appendChild(style);
 
-          function removeRawScriptText() {
-            const hasSourceSignature = t =>
-              t.includes('const $=id=>document.getElementById') ||
-              (t.includes('function render()') && t.includes('MutationObserver') && t.includes('dayColumns')) ||
-              (t.includes('headers.findIndex') && t.includes('shiftColor') && t.includes('operationsSummary')) ||
-              (t.includes('function shiftColor(') && t.includes('dayColumns.push') && t.includes('staffRows()'));
-            Array.from(document.querySelectorAll('body *')).forEach(el => {
-              const t = (el.innerText || el.textContent || '').trim();
-              if (t.length < 300 || !hasSourceSignature(t)) return;
-              let target = el;
-              while (target.parentElement && target.parentElement !== document.body) {
-                const parent = target.parentElement;
-                const pt = (parent.innerText || parent.textContent || '').trim();
-                if (!hasSourceSignature(pt) || pt.length > t.length * 2) break;
-                target = parent;
+          function normalizeDarkPalette() {
+            if (!document.documentElement.classList.contains('ios-dark')) return;
+            const isLight = (color) => {
+              const m = (color || '').match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+              return !!m && Number(m[1]) > 235 && Number(m[2]) > 235 && Number(m[3]) > 235;
+            };
+            const isPale = (color) => {
+              const m = (color || '').match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+              if (!m) return false;
+              const r=Number(m[1]), g=Number(m[2]), b=Number(m[3]);
+              return r > 205 && g > 215 && b > 205;
+            };
+            document.querySelectorAll('body *').forEach(el => {
+              if (el.closest('.ios-theme-controls')) return;
+              const tag = el.tagName;
+              if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'OPTION') return;
+              const cs = getComputedStyle(el);
+              // Only recolor opaque, near-white surfaces, preserving shift badge colors.
+              if (!el.classList.contains('shift-badge') &&
+                  !el.classList.contains('ios-shift-caption') &&
+                  isLight(cs.backgroundColor)) {
+                el.style.setProperty('background-color', '#172520', 'important');
+                if (cs.borderTopWidth !== '0px') el.style.setProperty('border-color', '#2c443a', 'important');
               }
-              target.remove();
-            });
-            Array.from(document.body.childNodes).forEach(node => {
-              if (node.nodeType === Node.TEXT_NODE) {
-                const t = (node.nodeValue || '').trim();
-                if (t.length > 300 && hasSourceSignature(t)) node.remove();
+              if (isPale(cs.color) && !el.classList.contains('shift-badge')) {
+                el.style.setProperty('color', '#e6f0eb', 'important');
               }
             });
           }
 
           function installBannerControls() {
-            removeRawScriptText();
+            normalizeDarkPalette();
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             let node;
             while ((node = walker.nextNode())) {
@@ -256,7 +241,7 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
             installBannerControls();
             const observer = new MutationObserver(() => { removeVisibleScriptText(); compactTable(); installBannerControls(); });
             observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-            setInterval(removeRawScriptText, 700);
+            setInterval(normalizeDarkPalette, 1000);
             document.addEventListener('change', () => setTimeout(() => { compactTable(); installBannerControls(); }, 100), true);
           };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
