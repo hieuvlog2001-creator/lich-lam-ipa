@@ -104,6 +104,12 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               }
               html.ios-dark .shift-summary *, html.ios-dark .shift-count *, html.ios-dark .shift-pill *,
               html.ios-dark .summary-pill *, html.ios-dark .shift-stat * { color:#17392d !important; }
+              html.ios-dark [class*="shift-summary"], html.ios-dark [class*="shift-count"],
+              html.ios-dark [class*="shift-pill"], html.ios-dark [class*="summary-pill"],
+              html.ios-dark [class*="shift-stat"] { background:#dcefe6 !important; color:#17392d !important; }
+              html.ios-dark [class*="shift-summary"] *, html.ios-dark [class*="shift-count"] *,
+              html.ios-dark [class*="shift-pill"] *, html.ios-dark [class*="summary-pill"] *,
+              html.ios-dark [class*="shift-stat"] * { color:#17392d !important; }
               html.ios-dark .schedule-table .staff-dept, html.ios-dark .schedule-table .ios-shift-caption { color:#85d9b7 !important; }
               html.ios-dark input, html.ios-dark select, html.ios-dark textarea { background:#172520 !important; color:#e6f0eb !important; border-color:#355448 !important; }
               html.ios-dark button, html.ios-dark .card, html.ios-dark .stat-card, html.ios-dark .summary-card { background:#172520 !important; color:#e6f0eb !important; border-color:#2c443a !important; }
@@ -117,31 +123,41 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
           (document.head || document.documentElement).appendChild(style);
 
           function normalizeDarkPalette() {
-            if (!document.documentElement.classList.contains('ios-dark')) return;
-            const isLight = (color) => {
+            const dark = document.documentElement.classList.contains('ios-dark');
+            if (!dark) return;
+            const rgb = (color) => {
               const m = (color || '').match(/rgba?\\((\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)/i);
-              return !!m && Number(m[1]) > 235 && Number(m[2]) > 235 && Number(m[3]) > 235;
+              return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
             };
-            const isPale = (color) => {
-              const m = (color || '').match(/rgba?\\((\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)/i);
-              if (!m) return false;
-              const r=Number(m[1]), g=Number(m[2]), b=Number(m[3]);
-              return r > 205 && g > 215 && b > 205;
+            const paleSurface = (color) => {
+              const c = rgb(color);
+              return !!c && c[0] > 205 && c[1] > 215 && c[2] > 205;
+            };
+            const paleText = (color) => {
+              const c = rgb(color);
+              return !!c && c[0] > 205 && c[1] > 215 && c[2] > 205;
             };
             document.querySelectorAll('body *').forEach(el => {
               if (el.closest('.ios-theme-controls')) return;
-              const tag = el.tagName;
-              if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'OPTION') return;
+              if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'OPTION'].includes(el.tagName)) return;
               const cs = getComputedStyle(el);
-              // Only recolor opaque, near-white surfaces, preserving shift badge colors.
-              if (!el.classList.contains('shift-badge') &&
-                  !el.classList.contains('ios-shift-caption') &&
-                  isLight(cs.backgroundColor)) {
+              const cls = String(el.className || '').toLowerCase();
+              const isShiftBadge = cls.includes('shift-badge') || cls.includes('shift-code') ||
+                                   cls.includes('shift-pill-code') || el.classList.contains('ios-shift-caption');
+              // Darken all pale summary chips/cards, not just pure white backgrounds.
+              if (!isShiftBadge && paleSurface(cs.backgroundColor)) {
                 el.style.setProperty('background-color', '#172520', 'important');
-                if (cs.borderTopWidth !== '0px') el.style.setProperty('border-color', '#2c443a', 'important');
-              }
-              if (isPale(cs.color) && !el.classList.contains('shift-badge')) {
                 el.style.setProperty('color', '#e6f0eb', 'important');
+                el.style.setProperty('border-color', '#2c443a', 'important');
+                el.setAttribute('data-ios-dark-adjusted', '1');
+              }
+              // Keep pastel shift badges but force dark, readable text on them.
+              if (isShiftBadge) {
+                el.style.setProperty('color', '#26352f', 'important');
+                el.style.setProperty('font-weight', '800', 'important');
+              } else if (paleText(cs.color) && !el.closest('.ios-theme-controls')) {
+                el.style.setProperty('color', '#e6f0eb', 'important');
+                el.setAttribute('data-ios-dark-text-adjusted', '1');
               }
             });
           }
@@ -165,9 +181,12 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
                 theme.type = 'button';
                 const updateThemeLabel = () => { theme.textContent = document.documentElement.classList.contains('ios-dark') ? '☀ Sáng' : '☾ Tối'; };
                 theme.addEventListener('click', () => {
-                  const dark = document.documentElement.classList.toggle('ios-dark');
+                  const dark = !document.documentElement.classList.contains('ios-dark');
                   try { localStorage.setItem('lichLamIOSTheme', dark ? 'dark' : 'light'); } catch(e) {}
+                  document.documentElement.classList.toggle('ios-dark', dark);
                   updateThemeLabel();
+                  // Reload after selecting a theme so the site is restyled from a clean DOM.
+                  setTimeout(() => location.reload(), 80);
                 });
                 try { if (localStorage.getItem('lichLamIOSTheme') === 'dark') document.documentElement.classList.add('ios-dark'); } catch(e) {}
                 updateThemeLabel(); controls.appendChild(reload); controls.appendChild(theme);
