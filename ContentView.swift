@@ -6,80 +6,10 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.06, green: 0.48, blue: 0.34),
-                                    Color(red: 0.04, green: 0.32, blue: 0.25)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 40, height: 40)
-                .shadow(color: Color(red: 0.04, green: 0.32, blue: 0.25).opacity(0.18), radius: 5, y: 3)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(AppConfig.appName)
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color(red: 0.08, green: 0.20, blue: 0.16))
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(model.isLoading ? Color.orange : Color(red: 0.08, green: 0.61, blue: 0.42))
-                            .frame(width: 6, height: 6)
-                        Text(model.isLoading ? "Đang cập nhật lịch" : "Lịch nhân sự")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Color(red: 0.39, green: 0.48, blue: 0.44))
-                    }
-                }
-
-                Spacer(minLength: 8)
-
-                Button {
-                    model.reload()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Color(red: 0.07, green: 0.40, blue: 0.30))
-                        .frame(width: 40, height: 40)
-                        .background(Color(red: 0.91, green: 0.96, blue: 0.93))
-                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                .stroke(Color(red: 0.82, green: 0.90, blue: 0.85), lineWidth: 0.8)
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Tải lại lịch")
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 10)
-            .background(
-                LinearGradient(
-                    colors: [Color.white, Color(red: 0.97, green: 0.99, blue: 0.98)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color(red: 0.88, green: 0.92, blue: 0.89))
-                    .frame(height: 0.7)
-            }
-
             if model.isLoading {
                 ProgressView(value: model.progress)
                     .tint(Color(red: 0.07, green: 0.42, blue: 0.31))
             }
-
             WebView(webView: model.webView)
                 .background(Color(red: 0.95, green: 0.97, blue: 0.96))
                 .ignoresSafeArea(edges: .bottom)
@@ -157,6 +87,16 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               #departments { overflow-x: hidden !important; }
               .schedule-table tr.staff-row td { height: auto !important; }
               .schedule-table tr.staff-row:nth-child(even) td { background-color: #fbfdfc; }
+              .ios-theme-controls { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-left:12px; }
+              .ios-theme-controls button { border:0; border-radius:12px; padding:9px 12px; font-size:13px; font-weight:800; color:#ffffff; background:rgba(255,255,255,.18); box-shadow:inset 0 0 0 1px rgba(255,255,255,.2); }
+              html.ios-dark, html.ios-dark body { background:#101a17 !important; color:#e6f0eb !important; }
+              html.ios-dark body * { color:inherit; }
+              html.ios-dark .schedule-table th { background:#18382d !important; color:#d7f5e7 !important; }
+              html.ios-dark .schedule-table td, html.ios-dark .schedule-table tr.staff-row td { background:#172520 !important; border-color:#2c443a !important; color:#e6f0eb !important; }
+              html.ios-dark .schedule-table .staff-name { color:#f0fff7 !important; }
+              html.ios-dark .schedule-table .staff-dept, html.ios-dark .schedule-table .ios-shift-caption { color:#85d9b7 !important; }
+              html.ios-dark input, html.ios-dark select { background:#172520 !important; color:#e6f0eb !important; border-color:#355448 !important; }
+              html.ios-dark #departments > * { color:#e6f0eb !important; }
             }
           `;
           const style = document.createElement('style');
@@ -164,6 +104,35 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
           style.textContent = css;
           (document.head || document.documentElement).appendChild(style);
 
+          function installBannerControls() {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            let node;
+            while ((node = walker.nextNode())) {
+              if ((node.nodeValue || '').includes('Dữ liệu sẵn sàng')) {
+                const host = node.parentElement;
+                if (!host || host.dataset.iosControlsInstalled) continue;
+                host.dataset.iosControlsInstalled = '1';
+                node.nodeValue = node.nodeValue.replace('Dữ liệu sẵn sàng', '');
+                const controls = document.createElement('div');
+                controls.className = 'ios-theme-controls';
+                const reload = document.createElement('button');
+                reload.type = 'button'; reload.textContent = '↻ Làm mới';
+                reload.addEventListener('click', () => location.reload());
+                const theme = document.createElement('button');
+                theme.type = 'button';
+                const updateThemeLabel = () => { theme.textContent = document.documentElement.classList.contains('ios-dark') ? '☀ Sáng' : '☾ Tối'; };
+                theme.addEventListener('click', () => {
+                  const dark = document.documentElement.classList.toggle('ios-dark');
+                  try { localStorage.setItem('lichLamIOSTheme', dark ? 'dark' : 'light'); } catch(e) {}
+                  updateThemeLabel();
+                });
+                try { if (localStorage.getItem('lichLamIOSTheme') === 'dark') document.documentElement.classList.add('ios-dark'); } catch(e) {}
+                updateThemeLabel(); controls.appendChild(reload); controls.appendChild(theme);
+                host.appendChild(controls);
+                host.style.display = 'flex'; host.style.alignItems = 'center'; host.style.justifyContent = 'space-between'; host.style.gap = '10px';
+              }
+            }
+          }
           function shiftCaption(code) {
             const c = (code || '').trim().toUpperCase();
             if (/^M\\d*/.test(c)) return 'Ca sáng';
@@ -214,9 +183,10 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
             const root = document.getElementById('departments');
             if (!root) { setTimeout(install, 250); return; }
             compactTable();
-            const observer = new MutationObserver(() => compactTable());
-            observer.observe(root, { childList: true, subtree: true });
-            document.addEventListener('change', () => setTimeout(compactTable, 100), true);
+            installBannerControls();
+            const observer = new MutationObserver(() => { compactTable(); installBannerControls(); });
+            observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+            document.addEventListener('change', () => setTimeout(() => { compactTable(); installBannerControls(); }, 100), true);
           };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
           else install();
