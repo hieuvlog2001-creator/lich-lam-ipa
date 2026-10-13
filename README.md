@@ -18,3 +18,7 @@ Sửa `Config.swift`, thay `https://misamod.site`.
 - Đây là ứng dụng WebView, không thay thế backend Cloudflare Worker.
 - Dữ liệu vẫn lấy từ website/Google Sheets hiện có; app không tạo database mới.
 - Build trên GitHub không cần máy Mac cá nhân, nhưng repository phải cho phép GitHub Actions chạy.
+
+
+## Giao diện iOS gọn 3 cột
+Trong app iOS, WebView tự tinh chỉnh bảng lịch thành 3 cột: STT, Họ và tên, Ca làm. Cột vị trí/trạng thái được ẩn trong app, tên bộ phận vẫn ở dưới tên nhân viên, và mã ca có nhãn phụ như M6 / Ca sáng, A2 / Ca chiều, N10 / Ca đêm. Đây là thay đổi chỉ trong ứng dụng iOS; website và dữ liệu Google Sheets không bị thay đổi.
