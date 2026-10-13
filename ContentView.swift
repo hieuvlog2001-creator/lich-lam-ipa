@@ -80,6 +80,9 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               .schedule-table .shift-group-label { display: flex !important; align-items: center !important; gap: 7px !important; }
               .schedule-table .shift-group-count { margin-left: auto !important; font-size: 11px !important; white-space: nowrap !important; }
               .schedule-table .staff-name { font-size: 13px !important; line-height: 1.3 !important; font-weight: 800 !important; color: #16362c !important; }
+              .ios-role-icons { display:inline-flex !important; flex-wrap:wrap !important; align-items:center !important; gap:4px !important; margin-left:6px !important; vertical-align:middle !important; }
+              .ios-role-icon { display:inline-flex !important; align-items:center !important; justify-content:center !important; min-width:25px !important; height:19px !important; padding:0 5px !important; border-radius:6px !important; background:#dcefe6 !important; color:#155b45 !important; font-size:9px !important; line-height:1 !important; font-weight:900 !important; border:1px solid #b7ddca !important; white-space:nowrap !important; }
+              html.ios-dark .ios-role-icon { background:#244c3d !important; color:#d7f5e7 !important; border-color:#3b705a !important; }
               .schedule-table .staff-dept { margin-top: 3px !important; font-size: 11px !important; line-height: 1.25 !important; color: #0c8061 !important; font-weight: 600 !important; }
               .schedule-table .shift-badge { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 38px !important; border-radius: 9px !important; padding: 6px 7px !important; font-size: 13px !important; font-weight: 800 !important; white-space: nowrap !important; }
               .schedule-table .ios-shift-caption { display: block !important; margin-top: 4px !important; font-size: 10px !important; line-height: 1.15 !important; color: #657a71 !important; font-weight: 600 !important; text-align: center !important; white-space: normal !important; }
@@ -174,9 +177,6 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
                 node.nodeValue = node.nodeValue.replace('Dữ liệu sẵn sàng', '');
                 const controls = document.createElement('div');
                 controls.className = 'ios-theme-controls';
-                const reload = document.createElement('button');
-                reload.type = 'button'; reload.textContent = '↻ Làm mới';
-                reload.addEventListener('click', () => location.reload());
                 const theme = document.createElement('button');
                 theme.type = 'button';
                 const updateThemeLabel = () => { theme.textContent = document.documentElement.classList.contains('ios-dark') ? '☀ Sáng' : '☾ Tối'; };
@@ -185,11 +185,11 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
                   try { localStorage.setItem('lichLamIOSTheme', dark ? 'dark' : 'light'); } catch(e) {}
                   document.documentElement.classList.toggle('ios-dark', dark);
                   updateThemeLabel();
-                  // Reload after selecting a theme so the site is restyled from a clean DOM.
-                  setTimeout(() => location.reload(), 80);
+                  // Apply the selected theme immediately without reloading the page.
+                  normalizeDarkPalette();
                 });
                 try { if (localStorage.getItem('lichLamIOSTheme') === 'dark') document.documentElement.classList.add('ios-dark'); } catch(e) {}
-                updateThemeLabel(); controls.appendChild(reload); controls.appendChild(theme);
+                updateThemeLabel(); controls.appendChild(theme);
                 host.appendChild(controls);
                 host.style.display = 'flex'; host.style.alignItems = 'center'; host.style.justifyContent = 'space-between'; host.style.gap = '10px';
               }
@@ -259,6 +259,43 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
             return '';
           }
 
+          function installRoleIcons(row) {
+            if (!row || row.dataset.iosRoleIconsInstalled) return;
+            const cells = row.children;
+            if (!cells || cells.length < 4) return;
+            const nameCell = cells[1];
+            const positionCell = cells[2];
+            if (!nameCell || !positionCell) return;
+            const position = (positionCell.innerText || positionCell.textContent || '').trim().toUpperCase();
+            const name = nameCell.querySelector('.staff-name') || nameCell;
+            const roles = [
+              { key: 'FOM', terms: ['FOM', 'FRONT OFFICE MANAGER'] },
+              { key: 'FO', terms: ['FO', 'FRONT OFFICE', 'RECEPTION'] },
+              { key: 'GRO', terms: ['GRO', 'GUEST RELATION'] },
+              { key: 'BELL', terms: ['BELL', 'BELLBOY', 'BELL BOY', 'BELL SERVICE'] }
+            ];
+            let matches = roles.filter(role => role.terms.some(term => position.includes(term)));
+            // FOM is a distinct role; do not also label it as FO.
+            if (matches.some(role => role.key === 'FOM')) matches = matches.filter(role => role.key !== 'FO');
+            if (!matches.length) return;
+            let icons = nameCell.querySelector('.ios-role-icons');
+            if (!icons) {
+              icons = document.createElement('span');
+              icons.className = 'ios-role-icons';
+              name.appendChild(icons);
+            }
+            matches.forEach(role => {
+              if (icons.querySelector('[data-role="' + role.key + '"]')) return;
+              const chip = document.createElement('span');
+              chip.className = 'ios-role-icon';
+              chip.dataset.role = role.key;
+              chip.textContent = role.key;
+              chip.setAttribute('aria-label', role.key);
+              icons.appendChild(chip);
+            });
+            row.dataset.iosRoleIconsInstalled = '1';
+          }
+
           function compactTable() {
             const table = document.querySelector('#departments table.schedule-table');
             if (!table) return;
@@ -269,6 +306,7 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
             }
             table.querySelectorAll('tr.shift-group-row td').forEach(td => { td.colSpan = 3; });
             table.querySelectorAll('tr.staff-row').forEach(row => {
+              installRoleIcons(row);
               const cells = row.children;
               if (cells.length >= 5) {
                 // Bảng nguồn: STT | Họ và tên | Vị trí | Ca làm | Trạng thái.
