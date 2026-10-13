@@ -90,12 +90,17 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               .ios-theme-controls { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-left:12px; }
               .ios-theme-controls button { border:0; border-radius:12px; padding:9px 12px; font-size:13px; font-weight:800; color:#ffffff; background:rgba(255,255,255,.18); box-shadow:inset 0 0 0 1px rgba(255,255,255,.2); }
               html.ios-dark, html.ios-dark body { background:#101a17 !important; color:#e6f0eb !important; }
-              html.ios-dark body * { color:inherit; }
+              html.ios-dark body { color:#e6f0eb !important; }
+              html.ios-dark body * { border-color:#2c443a !important; }
+              html.ios-dark h1, html.ios-dark h2, html.ios-dark h3, html.ios-dark p, html.ios-dark label, html.ios-dark span, html.ios-dark div { color:#e6f0eb; }
+              html.ios-dark .schedule-table { background:#172520 !important; }
               html.ios-dark .schedule-table th { background:#18382d !important; color:#d7f5e7 !important; }
               html.ios-dark .schedule-table td, html.ios-dark .schedule-table tr.staff-row td { background:#172520 !important; border-color:#2c443a !important; color:#e6f0eb !important; }
               html.ios-dark .schedule-table .staff-name { color:#f0fff7 !important; }
               html.ios-dark .schedule-table .staff-dept, html.ios-dark .schedule-table .ios-shift-caption { color:#85d9b7 !important; }
-              html.ios-dark input, html.ios-dark select { background:#172520 !important; color:#e6f0eb !important; border-color:#355448 !important; }
+              html.ios-dark input, html.ios-dark select, html.ios-dark textarea { background:#172520 !important; color:#e6f0eb !important; border-color:#355448 !important; }
+              html.ios-dark button, html.ios-dark .card, html.ios-dark .stat-card, html.ios-dark .summary-card { background:#172520 !important; color:#e6f0eb !important; border-color:#2c443a !important; }
+              html.ios-dark .ios-theme-controls button { background:#246b53 !important; color:#ffffff !important; border-color:#4d8d74 !important; }
               html.ios-dark #departments > * { color:#e6f0eb !important; }
             }
           `;
@@ -104,7 +109,24 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
           style.textContent = css;
           (document.head || document.documentElement).appendChild(style);
 
+          function removeRawScriptText() {
+            // The screenshot shows a long JavaScript bundle rendered as ordinary page text.
+            // Remove only text containers that clearly contain source code, not normal prose.
+            const candidates = document.querySelectorAll('body *');
+            candidates.forEach(el => {
+              if (el.children.length > 0) return;
+              const t = (el.textContent || '').trim();
+              if (t.length > 500 &&
+                  (t.includes('const $=id=>document.getElementById') ||
+                   (t.includes('function render()') && t.includes('MutationObserver') && t.includes('dayColumns')) ||
+                   (t.includes('headers.findIndex') && t.includes('shiftColor') && t.includes('operationsSummary')))) {
+                el.remove();
+              }
+            });
+          }
+
           function installBannerControls() {
+            removeRawScriptText();
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             let node;
             while ((node = walker.nextNode())) {
@@ -133,6 +155,24 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
               }
             }
           }
+          function removeVisibleScriptText() {
+            // Phòng trường hợp trang web vô tình render mã JavaScript thành nội dung văn bản.
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            const badMarkers = ['const $=id=>document.getElementById', 'function shiftColor(', 'dayColumns.push(', 'function render(){ if(!dayColumns.length)'];
+            const remove = [];
+            let textNode;
+            while ((textNode = walker.nextNode())) {
+              const value = textNode.nodeValue || '';
+              if (value.length > 500 && badMarkers.some(marker => value.includes(marker))) {
+                const parent = textNode.parentElement;
+                if (parent) remove.push(parent.closest('pre, code, script, .script-output, .code-output') || parent);
+              }
+            }
+            [...new Set(remove)].forEach(el => {
+              if (el && !el.closest('script, style')) el.remove();
+            });
+          }
+
           function shiftCaption(code) {
             const c = (code || '').trim().toUpperCase();
             if (/^M\\d*/.test(c)) return 'Ca sáng';
@@ -182,9 +222,10 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate {
           const install = () => {
             const root = document.getElementById('departments');
             if (!root) { setTimeout(install, 250); return; }
+            removeVisibleScriptText();
             compactTable();
             installBannerControls();
-            const observer = new MutationObserver(() => { compactTable(); installBannerControls(); });
+            const observer = new MutationObserver(() => { removeVisibleScriptText(); compactTable(); installBannerControls(); });
             observer.observe(document.body, { childList: true, subtree: true, characterData: true });
             document.addEventListener('change', () => setTimeout(() => { compactTable(); installBannerControls(); }, 100), true);
           };
